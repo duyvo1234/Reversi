@@ -1,6 +1,6 @@
 import score, turtle, random
 from board import Board
-
+from min_max_ai import *
 
 MOVE_DIRS = [(-1, -1), (-1, 0), (-1, +1),
              (0, -1),           (0, +1),
@@ -14,6 +14,8 @@ class Othello(Board):
         Board.__init__(self, n)
         self.current_player = 0
         self.num_tiles = [2, 2]
+        self.ai = True
+        self.player_go_first = False
 
     def initialize_board(self):
         
@@ -36,6 +38,9 @@ class Othello(Board):
        
         if self.is_legal_move(self.move):
             self.board[self.move[0]][self.move[1]] = self.current_player + 1
+            print((self.move[0], self.move[1]))
+            print(self.board[self.move[0]][self.move[1]])
+            print('#########################')
             self.num_tiles[self.current_player] += 1
             self.draw_tile(self.move, self.current_player)
             self.flip_tiles()
@@ -116,15 +121,28 @@ class Othello(Board):
             print('Error: unknown player. Quit...')
             return
         
+        if not self.player_go_first:
+            self.current_player = 1
+            print('Computer\'s turn.')
+            self.make_random_move()
+
         self.current_player = 0
         print('Your turn.')
-        turtle.onscreenclick(self.play)
+        if self.ai:
+            temp = StateHolder(self.board, self.n, self.num_tiles, self.current_player)
+            move = alpha_beta_minimax(temp, 1)
+            self.play(move[0], move[1])
+        else:
+            turtle.onscreenclick(self.play)
         turtle.mainloop()
 
     def play(self, x, y):
         
         if self.has_legal_move():
-            self.get_coord(x, y)
+            if self.ai:
+                self.move = (x,y)
+            else:
+                self.get_coord(x, y)
             if self.is_legal_move(self.move):
                 turtle.onscreenclick(None)
                 self.make_move()
@@ -163,7 +181,12 @@ class Othello(Board):
                 turtle.ontimer(turtle.bye, 3000)
         else:
             print('Your turn.')
-            turtle.onscreenclick(self.play)
+            if self.ai:
+                temp = StateHolder(self.board, self.n, self.num_tiles, self.current_player)
+                move = alpha_beta_minimax(temp, 1)
+                self.play(move[0], move[1])
+            else:
+                turtle.onscreenclick(self.play)
         
     def make_random_move(self):
        
