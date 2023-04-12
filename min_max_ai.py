@@ -126,7 +126,7 @@ def alpha_beta_search(board, depth, alpha, beta, player):
             trvBoard = deepcopy(board)
             trvBoard.move = m
             trvBoard.make_move()
-            value = alpha_beta_search(trvBoard, depth + 1, alpha, beta, -1)
+            value = alpha_beta_search(trvBoard, depth + 1, alpha, beta, False)
             best = max(best, value)
             alpha = max(alpha, value)
             if beta <= alpha:
@@ -138,7 +138,7 @@ def alpha_beta_search(board, depth, alpha, beta, player):
             trvBoard = deepcopy(board)
             trvBoard.move = m
             trvBoard.make_move()
-            value = alpha_beta_search(trvBoard, depth + 1, alpha, beta, 1)
+            value = alpha_beta_search(trvBoard, depth + 1, alpha, beta, True)
             best = min(best, value)
             beta = min(beta, value)
             if beta <= alpha:
