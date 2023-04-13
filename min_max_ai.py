@@ -1,6 +1,7 @@
 from copy import deepcopy
 import math
 import random
+import time
 
 MAX_DEPTH = 3
 MINIMUM = -math.inf
@@ -10,17 +11,15 @@ MOVE_DIRS = [(-1, -1), (-1, 0), (-1, +1),
              (+1, -1), (+1, 0), (+1, +1)]
 
 class StateHolder:
-    def __init__(self, board, n, num_tiles, player):
-        self.n = n
+    def __init__(self, board, player):
+        self.n = 8
         self.board = board
-        self.num_tiles = num_tiles
         self.current_player = player
         self.move = ()
 
     def make_move(self):
         if self.is_legal_move(self.move):
             self.board[self.move[0]][self.move[1]] = self.current_player + 1
-            self.num_tiles[self.current_player] += 1
             self.flip_tiles()
 
     def flip_tiles(self):
@@ -35,8 +34,6 @@ class StateHolder:
                         break
                     else:
                         self.board[row][col] = curr_tile
-                        self.num_tiles[self.current_player] += 1
-                        self.num_tiles[(self.current_player + 1) % 2] -= 1
                         i += 1
 
     def has_tile_to_flip(self, move, direction):
@@ -87,10 +84,20 @@ class StateHolder:
                 if self.has_tile_to_flip(move, direction):
                     return True
         return False
+    
+    def get_squares(self, player):
+        """ Get the coordinates (x,y) for all pieces on the board of the given color.
+        (1 for white, -1 for black, 0 for empty spaces) """
+        squares=[]
+        for y in range(8):
+            for x in range(8):
+                if self.board[x][y]==(player+1):
+                    squares.append((x,y))
+        return squares
 
 
 
-def alpha_beta_minimax(board, player):
+def alpha_beta_minimax(board, time_constrain):
     best_value = -10000
     moves = board.get_legal_moves()
     best_move = None
@@ -98,28 +105,35 @@ def alpha_beta_minimax(board, player):
     alpha = MINIMUM
     beta = MAXIMUM
 
-    for move in moves:
-        tempBoard = deepcopy(board)
-        tempBoard.move = move
-        tempBoard.make_move()
-        score = alpha_beta_search(tempBoard, 0, alpha, beta, False)
+    end_time = time.time() + time_constrain
 
-        if score > best_value:
-            best_value = score
-            best_move = move
-        alpha = max(alpha, best_value)
-        if beta <= alpha:
-            break
+    while time.time() < end_time:
+        for move in moves:
+            tempBoard = deepcopy(board)
+            tempBoard.move = move
+            tempBoard.make_move()
+            score = alpha_beta_search(tempBoard, 0, alpha, beta, False)
+
+            if score > best_value:
+                best_value = score
+                best_move = move
+            alpha = max(alpha, best_value)
+
+            if beta <= alpha:
+                break
+        break
+        
     if best_move == None:
         best_move = random.choice(moves)
     return best_move
 
 def alpha_beta_search(board, depth, alpha, beta, player):
-    moves = board.get_legal_moves()
-    if depth == MAX_DEPTH or moves == []:
+    
+    if depth == MAX_DEPTH:
         return board_value(board)
+        return calculate_heuristics(board, player)
     
-    
+    moves = board.get_legal_moves()
     if player:
         best = MINIMUM        
         for m in moves:
@@ -292,5 +306,134 @@ def board_value(state):
 
     l = -12.5 * (player_num - enemy_num)
 
+    # Step 6
+    player_num = enemy_num = 0
+    if state.make_move() == []:
+        player_moves = state.make_move()
+        player_num = len(player_moves)
+
+    temp = deepcopy(state)
+    temp.current_player = enemy - 1
+    if temp.make_move() == []:
+        enemy_moves = temp.make_move()
+        enemy_num = len(enemy_moves)
+    if player_num > enemy_num:
+        m = (100.0 * player_num)/(player_num + enemy_num)
+    elif player_num < enemy_num:
+        m = -(100.0 * enemy_num)/(player_num + enemy_num)
+    else:
+        m = 0
+
     return (10 * p) + (801.724 * c) + (382.026 * l) + \
                (78.922 * m) + (74.396 * f) + (10 * d)
+
+def calculate_heuristics(board, player):
+
+    #print "IN calculate_heuristics"
+    #calculating the heuristics based on the following 4 components:
+    #1) mobility
+    #2) stability
+    #3) corners
+    #4) coin parity
+    
+    #for mobility
+    max_player_moves = board.get_legal_moves()
+    
+    #print_moves(max_player_moves)
+    # print "init-board: \n"
+    # self.display(board)
+    max_player_mobility = len(max_player_moves)
+    #print "len: max_mob: "+str(max_player_mobility)
+    
+    min_player_mobility = float('inf')
+    num_min_player_moves = 0
+
+    for move in max_player_moves:
+
+        newboard_mob = deepcopy(board)
+        newboard_mob.move = move
+        newboard_mob.make_move()
+        newboard_mob.current_player = 1 - player
+        
+        min_player_moves = newboard_mob.get_legal_moves()
+        # print "Min-player-moves"
+        # print_moves(min_player_moves)
+
+        num_min_player_moves = len(min_player_moves)
+
+        if(num_min_player_moves < min_player_mobility):
+            min_player_mobility = num_min_player_moves
+
+    # print "Min-Player_mob: "+str(min_player_mobility)
+    # print "MAX-Player_mob: "+str(max_player_mobility)
+
+    if(max_player_mobility + min_player_mobility != 0):
+        actual_mobility = 10000*( max_player_mobility - min_player_mobility )/( max_player_mobility + min_player_mobility )
+    else:
+        actual_mobility = 0
+
+
+    #corners captured
+
+    newboard_corner = deepcopy(board)
+    all_corners = [(0,0),(7,7), (0,7), (7,0)]
+    potential_corners = [(0,2),(2,0),(5,0),(0,5),(5,7),(7,5),(2,7),(7,2)]
+    tobe_potential_corners = [(5,5),(5,2),(2,5),(2,2)]
+    unlikely_corners = [(6,1),(6,6),(1,1),(1,6),(1,7),(7,1),(0,6),(6,0),(6,7),(7,6),(1,0),(0,1)]
+    max_corner_count = 0
+    min_corner_count = 0
+    max_potential_corners = 0
+    min_potential_corners = 0
+    max_tobe_potential_corners = 0
+    min_tobe_potential_corners = 0
+
+    min_unlikely_corners = 0
+    max_unlikely_corners = 0
+
+    cood_max_squares = newboard_corner.get_squares(player)
+    cood_min_squares = newboard_corner.get_squares(1-player)
+
+    # print "min: "
+    # print cood_min_squares
+    # print "max: "
+    # print cood_max_squares
+
+    for cord_max in cood_max_squares:
+        if cord_max in all_corners:   
+            max_corner_count +=3
+        if cord_max in potential_corners:
+            max_potential_corners += 2
+        if cord_max in tobe_potential_corners:
+            max_tobe_potential_corners +=1
+
+    for cord_min in cood_min_squares:
+        if cord_min in all_corners:
+            min_corner_count +=3
+        if cord_min in potential_corners:
+            min_potential_corners += 2
+        if cord_min in tobe_potential_corners:
+            min_tobe_potential_corners +=1
+
+    total_max_corners = max_corner_count + max_potential_corners + max_tobe_potential_corners
+    total_min_corners = min_corner_count + min_potential_corners + min_tobe_potential_corners
+
+    # if (max_corner_count > 0):
+    #     print "max: "+str(max_corner_count )
+
+    # if(min_corner_count > 0):
+    #     print "min: "+str(min_corner_count)
+
+    # print "max-corners"+str(max_corner_count)
+    # print "min-corners"+str(min_corner_count)
+    
+    if(total_max_corners + total_min_corners != 0):
+        corner_heuristic = 10000*(( total_max_corners - total_max_corners )/( total_min_corners + total_max_corners ))
+    else:
+        corner_heuristic = 0
+
+    #print "actual_mobility: "+str(actual_mobility)
+
+    if(corner_heuristic != 0):
+        return (actual_mobility + corner_heuristic)/2
+    else: 
+        return actual_mobility

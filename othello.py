@@ -1,6 +1,7 @@
 import score, turtle, random
 from board import Board
 from min_max_ai import *
+import time
 
 MOVE_DIRS = [(-1, -1), (-1, 0), (-1, +1),
              (0, -1),           (0, +1),
@@ -16,6 +17,9 @@ class Othello(Board):
         self.num_tiles = [2, 2]
         self.ai = True
         self.player_go_first = False
+        self.time_limit = 3
+        self.time_start = 0
+        self.time_end = 0
 
     def initialize_board(self):
         
@@ -38,9 +42,6 @@ class Othello(Board):
        
         if self.is_legal_move(self.move):
             self.board[self.move[0]][self.move[1]] = self.current_player + 1
-            print((self.move[0], self.move[1]))
-            print(self.board[self.move[0]][self.move[1]])
-            print('#########################')
             self.num_tiles[self.current_player] += 1
             self.draw_tile(self.move, self.current_player)
             self.flip_tiles()
@@ -114,6 +115,10 @@ class Othello(Board):
         if 0 <= row < self.n and 0 <= col < self.n:
             return True
         return False
+    
+    def select_move(self, cur_state, player_to_move, remain_time):
+        temp = StateHolder(cur_state, player_to_move)
+        return alpha_beta_minimax(temp, remain_time)
 
     def run(self):
         
@@ -129,8 +134,11 @@ class Othello(Board):
         self.current_player = 0
         print('Your turn.')
         if self.ai:
-            temp = StateHolder(self.board, self.n, self.num_tiles, self.current_player)
-            move = alpha_beta_minimax(temp, 1)
+            self.time_start = time.time()
+            # temp = StateHolder(self.board, self.current_player)
+            move = self.select_move(self.board, self.current_player, self.time_limit)
+            self.time_end = time.time()
+            # move = alpha_beta_minimax(temp, self.time_limit)
             self.play(move[0], move[1])
         else:
             turtle.onscreenclick(self.play)
@@ -151,6 +159,7 @@ class Othello(Board):
 
        
         while True:
+            print(self.time_end - self.time_start)
             self.current_player = 1
             if self.has_legal_move():
                 print('Computer\'s turn.')
@@ -182,8 +191,11 @@ class Othello(Board):
         else:
             print('Your turn.')
             if self.ai:
-                temp = StateHolder(self.board, self.n, self.num_tiles, self.current_player)
-                move = alpha_beta_minimax(temp, 1)
+                self.time_start = time.time()
+                # temp = StateHolder(self.board, self.current_player)
+                # move = alpha_beta_minimax(temp, 1)
+                move = self.select_move(self.board, self.current_player, self.time_limit)
+                self.time_end = time.time()
                 self.play(move[0], move[1])
             else:
                 turtle.onscreenclick(self.play)
