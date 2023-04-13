@@ -1,0 +1,2 @@
+- Chạy file index.py để chạy game
+- Đổi giá trị self.player_go_first ở dòng 19 file othello.py sang True nếu muốn AI đi trước và ngược lại
